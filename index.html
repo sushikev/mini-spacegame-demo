@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Shooter</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #000;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            height: 100vh;
+            background: #000;
+            overflow: hidden;
+        }
+
+        #startScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #startButton {
+            padding: 20px 40px;
+            font-size: 24px;
+            background: #fff;
+            border: none;
+            cursor: pointer;
+            border-radius: 10px;
+        }
+
+        #spaceship {
+            position: absolute;
+            bottom: 20px;
+            width: 40px;
+            height: 40px;
+            background: #0f0;
+            border-radius: 5px;
+        }
+
+        .bullet {
+            position: absolute;
+            width: 4px;
+            height: 10px;
+            background: #ff0;
+            border-radius: 2px;
+        }
+
+        .rock {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: #888;
+            border-radius: 50%;
+        }
+
+        #gameOver {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        #tryAgain {
+            padding: 10px 20px;
+            font-size: 18px;
+            background: #fff;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        @media (max-width: 600px) {
+            #gameContainer {
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="startScreen">
+            <button id="startButton">Start</button>
+        </div>
+        <div id="spaceship"></div>
+        <div id="gameOver">
+            <h2>Game Over!</h2>
+            <button id="tryAgain">Try Again?</button>
+        </div>
+    </div>
+
+    <script>
+        const gameContainer = document.getElementById('gameContainer');
+        const startScreen = document.getElementById('startScreen');
+        const startButton = document.getElementById('startButton');
+        const spaceship = document.getElementById('spaceship');
+        const gameOver = document.getElementById('gameOver');
+        const tryAgain = document.getElementById('tryAgain');
+
+        let gameActive = false;
+        let spaceshipX = gameContainer.offsetWidth / 2 - 20;
+        let bullets = [];
+        let rocks = [];
+        let rockSpeed = 2;
+        let rockFrequency = 1000;
+        let lastRockSpawn = 0;
+
+        function startGame() {
+            gameActive = true;
+            startScreen.style.display = 'none';
+            gameOver.style.display = 'none';
+            spaceship.style.left = spaceshipX + 'px';
+            bullets = [];
+            rocks = [];
+            rockSpeed = 2;
+            rockFrequency = 1000;
+            gameLoop();
+            shootInterval = setInterval(shootBullet, 1000);
+            spawnRocks();
+        }
+
+        startButton.addEventListener('click', startGame);
+        tryAgain.addEventListener('click', startGame);
+
+        // Movement controls
+        document.addEventListener('keydown', (e) => {
+            if (!gameActive) return;
+            if (e.key === 'ArrowLeft' && spaceshipX > 0) {
+                spaceshipX -= 10;
+            } else if (e.key === 'ArrowRight' && spaceshipX < gameContainer.offsetWidth - 40) {
+                spaceshipX += 10;
+            }
+            spaceship.style.left = spaceshipX + 'px';
+        });
+
+        // Touch controls
+        gameContainer.addEventListener('touchmove', (e) => {
+            if (!gameActive) return;
+            const touch = e.touches[0];
+            const newX = touch.clientX - gameContainer.offsetLeft - 20;
+            if (newX >= 0 && newX <= gameContainer.offsetWidth - 40) {
+                spaceshipX = newX;
+                spaceship.style.left = spaceshipX + 'px';
+            }
+        });
+
+        function shootBullet() {
+            const bullet = document.createElement('div');
+            bullet.className = 'bullet';
+            bullet.style.left = (spaceshipX + 18) + 'px';
+            bullet.style.bottom = '60px';
+            gameContainer.appendChild(bullet);
+            bullets.push(bullet);
+        }
+
+        function spawnRocks() {
+            if (!gameActive) return;
+            const now = Date.now();
+            if (now - lastRockSpawn > rockFrequency) {
+                const rock = document.createElement('div');
+                rock.className = 'rock';
+                rock.style.left = Math.random() * (gameContainer.offsetWidth - 20) + 'px';
+                rock.style.top = '-20px';
+                gameContainer.appendChild(rock);
+                rocks.push(rock);
+                lastRockSpawn = now;
+                
+                // Increase difficulty
+                rockSpeed += 0.1;
+                rockFrequency = Math.max(200, rockFrequency - 50);
+            }
+            setTimeout(spawnRocks, rockFrequency);
+        }
+
+        function gameLoop() {
+            if (!gameActive) return;
+
+            // Move bullets
+            bullets.forEach((bullet, bulletIndex) => {
+                let bulletY = parseFloat(bullet.style.bottom) || 60;
+                bulletY += 5;
+                bullet.style.bottom = bulletY + 'px';
+                
+                if (bulletY > gameContainer.offsetHeight) {
+                    bullet.remove();
+                    bullets.splice(bulletIndex, 1);
+                }
+            });
+
+            // Move rocks
+            rocks.forEach((rock, rockIndex) => {
+                let rockY = parseFloat(rock.style.top) || -20;
+                rockY += rockSpeed;
+                rock.style.top = rockY + 'px';
+
+                // Check collision with bullets
+                bullets.forEach((bullet, bulletIndex) => {
+                    const bulletRect = bullet.getBoundingClientRect();
+                    const rockRect = rock.getBoundingClientRect();
+                    
+                    if (bulletRect.left < rockRect.right &&
+                        bulletRect.right > rockRect.left &&
+                        bulletRect.top < rockRect.bottom &&
+                        bulletRect.bottom > rockRect.top) {
+                        bullet.remove();
+                        rock.remove();
+                        bullets.splice(bulletIndex, 1);
+                        rocks.splice(rockIndex, 1);
+                    }
+                });
+
+                // Check collision with spaceship
+                const spaceshipRect = spaceship.getBoundingClientRect();
+                const rockRect = rock.getBoundingClientRect();
+                if (rockRect.left < spaceshipRect.right &&
+                    rockRect.right > spaceshipRect.left &&
+                    rockRect.top < spaceshipRect.bottom &&
+                    rockRect.bottom > spaceshipRect.top) {
+                    endGame();
+                }
+
+                if (rockY > gameContainer.offsetHeight) {
+                    rock.remove();
+                    rocks.splice(rockIndex, 1);
+                }
+            });
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function endGame() {
+            gameActive = false;
+            clearInterval(shootInterval);
+            gameOver.style.display = 'flex';
+            bullets.forEach(bullet => bullet.remove());
+            rocks.forEach(rock => rock.remove());
+            bullets = [];
+            rocks = [];
+        }
+    </script>
+</body>
+</html>
